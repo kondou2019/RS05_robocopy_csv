@@ -1,7 +1,5 @@
 use chrono::prelude::NaiveDateTime;
-use encoding_rs;
-use std::fs;
-use std::path::Path;
+use std::io::prelude::*;
 use std::str::FromStr;
 
 /***
@@ -157,17 +155,14 @@ fn print_report(header:&Header, footer:&Footer) {
 
 /***
  * @brief robocopyのログファイルをCSV形式に整形する
- * @param[in] log_path ログファイル
+ * @param[in] reader ログファイル
  */
-pub fn format_csv(log_path:&Path) -> anyhow::Result<()> {
-    // 読み込み
-    let buf:Vec<u8> = fs::read(log_path).unwrap();
-    let (text, _, _) = encoding_rs::SHIFT_JIS.decode(&buf); // SJIS->UTF8
-    //
+pub fn format_csv<R>(reader: std::io::BufReader<R>) -> anyhow::Result<()> where R: std::io::Read, {
     let mut header:Header = Default::default();
     let mut footer:Footer = Default::default();
     let mut status = LineStatus::Reset;
-    for line in text.lines() {
+    for line in reader.lines() {
+        let line = line?;
         match status {
         LineStatus::Reset => {
             if line.starts_with("----") {
@@ -185,14 +180,14 @@ pub fn format_csv(log_path:&Path) -> anyhow::Result<()> {
             } else {
                 if let Some((k, v)) = kv_split(&line) {
                     match k {
-                    "開始" => {
+                    "開始" | "Started" => {
                         let dt: NaiveDateTime = NaiveDateTime::parse_from_str(&v, "%Y年%m月%d日 %H:%M:%S").unwrap();
                         header.started = dt;
                     },
-                    "コピー元" => header.source = v.to_string(),
-                    "コピー先" => header.dest = v.to_string(),
-                    "ファイル" => header.files = v.to_string(),
-                    "オプション" => header.options = v.to_string(),
+                    "コピー元" | "Source" => header.source = v.to_string(),
+                    "コピー先" | "Dest" => header.dest = v.to_string(),
+                    "ファイル" | "Files" => header.files = v.to_string(),
+                    "オプション" | "Options" => header.options = v.to_string(),
                     _ => (),
                     }
                 }
@@ -214,11 +209,11 @@ pub fn format_csv(log_path:&Path) -> anyhow::Result<()> {
             } else {
                 if let Some((k, v)) = kv_split(&line) {
                     match k {
-                    "ディレクトリ" => footer.dirs = FooterDetail::from_str(&v)?,
-                    "ファイル" => footer.files = FooterDetail::from_str(&v)?,
-                    "バイト" => footer.bytes = FooterDetail::from_str(&v)?,
-                    "時刻" => footer.times = v.to_string(),
-                    "終了" => {
+                    "ディレクトリ" | "Dirs" => footer.dirs = FooterDetail::from_str(&v)?,
+                    "ファイル" | "Files" => footer.files = FooterDetail::from_str(&v)?,
+                    "バイト" | "Bytes" => footer.bytes = FooterDetail::from_str(&v)?,
+                    "時刻" | "Times" => footer.times = v.to_string(),
+                    "終了" | "Ended" => {
                         let dt: NaiveDateTime = NaiveDateTime::parse_from_str(&v, "%Y年%m月%d日 %H:%M:%S").unwrap();
                         footer.ended = dt;
                     },
