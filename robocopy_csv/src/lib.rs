@@ -138,10 +138,11 @@ pub fn print_header() {
  * @brief 集計結果を出力
  * @param[in] header ヘッダ情報
  * @param[in] footer フッタ情報
+ * @param[in] output_date_format 出力データの日時形式
  */
-fn print_report(header:&Header, footer:&Footer) {
+fn print_report(header:&Header, footer:&Footer, output_date_format:&str) {
     let mut buf = String::with_capacity(512 as usize);
-    buf.push_str(&format!("{}\t{}", header.started, footer.ended));
+    buf.push_str(&format!("{}\t{}", header.started.format(&output_date_format), footer.ended.format(&output_date_format)));
     buf.push_str(&format!("\t{}\t{}", header.source, header.dest));
     let fd:&FooterDetail = &footer.dirs;
     buf.push_str(&format!("\t{}\t{}\t{}\t{}\t{}\t{}", fd.total, fd.copied, fd.skipped, fd.mismatch, fd.failed, fd.extras));
@@ -156,8 +157,10 @@ fn print_report(header:&Header, footer:&Footer) {
 /***
  * @brief robocopyのログファイルをCSV形式に整形する
  * @param[in] reader ログファイル
+ * @param[in] date_format ログファイルの日時形式
+ * @param[in] output_date_format 出力データの日時形式
  */
-pub fn format_csv<R>(reader: std::io::BufReader<R>) -> anyhow::Result<()> where R: std::io::Read, {
+pub fn format_csv<R>(reader: std::io::BufReader<R>, date_format:&str, output_date_format:&str) -> anyhow::Result<()> where R: std::io::Read, {
     let mut header:Header = Default::default();
     let mut footer:Footer = Default::default();
     let mut status = LineStatus::Reset;
@@ -181,7 +184,7 @@ pub fn format_csv<R>(reader: std::io::BufReader<R>) -> anyhow::Result<()> where 
                 if let Some((k, v)) = kv_split(&line) {
                     match k {
                     "開始" | "Started" => {
-                        let dt: NaiveDateTime = NaiveDateTime::parse_from_str(&v, "%Y年%m月%d日 %H:%M:%S").unwrap();
+                        let dt: NaiveDateTime = NaiveDateTime::parse_from_str(&v, &date_format).unwrap();
                         header.started = dt;
                     },
                     "コピー元" | "Source" => header.source = v.to_string(),
@@ -201,7 +204,7 @@ pub fn format_csv<R>(reader: std::io::BufReader<R>) -> anyhow::Result<()> where 
         LineStatus::Footer =>  {
             if line.starts_with("----") { // 次のrobocopyコマンドのログが始まった?
                 // 集計結果を出力
-                print_report(&header, &footer);
+                print_report(&header, &footer, &output_date_format);
                 header = Default::default();
                 footer = Default::default();
                 //
@@ -214,7 +217,7 @@ pub fn format_csv<R>(reader: std::io::BufReader<R>) -> anyhow::Result<()> where 
                     "バイト" | "Bytes" => footer.bytes = FooterDetail::from_str(&v)?,
                     "時刻" | "Times" => footer.times = v.to_string(),
                     "終了" | "Ended" => {
-                        let dt: NaiveDateTime = NaiveDateTime::parse_from_str(&v, "%Y年%m月%d日 %H:%M:%S").unwrap();
+                        let dt: NaiveDateTime = NaiveDateTime::parse_from_str(&v, &date_format).unwrap();
                         footer.ended = dt;
                     },
                     _ => (),
@@ -225,7 +228,7 @@ pub fn format_csv<R>(reader: std::io::BufReader<R>) -> anyhow::Result<()> where 
         };
     }
     if status == LineStatus::Footer {
-        print_report(&header, &footer);
+        print_report(&header, &footer, &output_date_format);
     }
     //
     Ok(())
