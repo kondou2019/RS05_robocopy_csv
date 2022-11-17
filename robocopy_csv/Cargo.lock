@@ -457,7 +457,7 @@ dependencies = [
 
 [[package]]
 name = "robocopy_csv"
-version = "0.1.255"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
