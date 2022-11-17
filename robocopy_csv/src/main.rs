@@ -13,7 +13,7 @@ enum Encode {
 }
 
 #[derive(clap::Parser)]
-#[clap(author, version, about="robocopyコマンドのログ出力をCSV形式に整形する。")]
+#[clap(author, version, about="Robocopy.exeのログ出力をCSV形式に整形する。")]
 struct Cli {
     #[clap(long, help="ヘッダ出力を抑止する")]
     no_header: bool,
